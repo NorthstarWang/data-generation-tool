@@ -1,18 +1,16 @@
-import React, { useReducer, useState } from "react";
+import React, { useState } from "react";
 import Graph from "./Graph";
+import { invoke } from "@tauri-apps/api/tauri";
 
 export default function Content() {
-  interface Keypoint {
-    timestamp: string;
-    payload: string;
-  }
 
   const [dptId, setDptId] = useState("");
   const [keypoints, setKeypoints] = useState<Keypoint[]>([]);
   const [formData, setFormData] = useState({
-    dpt_id: "",
     time_interval: "",
   });
+
+  const [points, setPoints] = useState<Keypoint[]>([]);
 
   const handleSettingInput = (e: any) => {
     e.preventDefault();
@@ -29,21 +27,26 @@ export default function Content() {
       "timestamp"
     ) as HTMLInputElement;
     const payloadInput = document.getElementById("payload") as HTMLInputElement;
-    const timestamp = timestampInput.value;
-    const payload = payloadInput.value;
-
-    const existingKeypoint = keypoints.find(
+    const timestamp = Math.max(0, Math.floor(Number(timestampInput.value)));
+    const payload = Number(payloadInput.value);
+  
+    const existingKeypointIndex = keypoints.findIndex(
       (keypoint) => keypoint.timestamp === timestamp
     );
-    if (existingKeypoint) {
-      setKeypoints((prevState) =>
-        prevState.map((keypoint) =>
-          keypoint.timestamp === timestamp ? { ...keypoint, payload } : keypoint
-        )
-      );
+    if (existingKeypointIndex !== -1) {
+      setKeypoints((prevState) => {
+        const updatedKeypoints = [...prevState];
+        updatedKeypoints[existingKeypointIndex] = { timestamp, payload };
+        return updatedKeypoints;
+      });
     } else {
       setKeypoints((prevState) => [...prevState, { timestamp, payload }]);
     }
+
+    invoke("interpolate", {keypoints: keypoints, interval: formData.time_interval}).then((res: Keypoint[]) => {
+      setPoints(res);
+    });
+
   };
 
   return (
@@ -51,28 +54,6 @@ export default function Content() {
       <aside className="flex-1 border-r border-gray-200 dark:border-gray-700 pr-8">
         <form>
           <div className="rounded-lg overflow-auto max-h-full">
-            <div className="p-6 px-4 py-5">
-              <h4 className="block text-sm font-medium leading-6">
-                Set Dpt id
-              </h4>
-              <div className="mt-2 -space-y-px rounded-md shadow-sm">
-                <div className="flex -space-x-px">
-                  <div className="flex-1">
-                    <label htmlFor="timestamp" className="sr-only">
-                      Dpt_id
-                    </label>
-                    <input
-                      type="text"
-                      name="dpt_id"
-                      id="dpt_id"
-                      className="relative block w-full rounded-md border-0 bg-transparent py-1.5 ring-1 ring-inset ring-gray-300 dark:ring-gray-600 placeholder:text-gray-400 focus:z-10 focus:ring-2 focus:ring-inset focus:ring-gray-900 dark:focus:ring-white text-sm leading-6"
-                      placeholder="Dpt id"
-                      onChange={handleSettingInput}
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
             <div className="p-6 px-4 py-5">
               <h4 className="block text-sm font-medium leading-6">
                 Set Time Interval
@@ -166,7 +147,7 @@ export default function Content() {
       <div className="flex-1">
         <div className="rounded-lg">
           <div className="p-6 px-4 py-5">
-            <Graph />
+            <Graph keypoints={points}/>
           </div>
         </div>
       </div>
