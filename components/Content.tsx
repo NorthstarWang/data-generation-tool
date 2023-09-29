@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import Graph from "./Graph";
-import { invoke } from "@tauri-apps/api/tauri";
+import { invoke } from "@tauri-apps/api";
 
 export default function Content() {
 
@@ -33,21 +33,25 @@ export default function Content() {
     const existingKeypointIndex = keypoints.findIndex(
       (keypoint) => keypoint.timestamp === timestamp
     );
+    let updatedKeypoints;
     if (existingKeypointIndex !== -1) {
-      setKeypoints((prevState) => {
-        const updatedKeypoints = [...prevState];
-        updatedKeypoints[existingKeypointIndex] = { timestamp, payload };
-        return updatedKeypoints;
-      });
+      updatedKeypoints = [...keypoints];
+      updatedKeypoints[existingKeypointIndex] = { timestamp, payload };
     } else {
-      setKeypoints((prevState) => [...prevState, { timestamp, payload }]);
+      updatedKeypoints = [...keypoints, { timestamp, payload }];
     }
 
-    invoke("interpolate", {keypoints: keypoints, interval: formData.time_interval}).then((res: Keypoint[]) => {
-      setPoints(res);
-    });
+    setKeypoints(updatedKeypoints);
 
+    if (typeof window !== 'undefined' && updatedKeypoints.length >= 2) {
+      const invoke = window.__TAURI__.invoke;
+      invoke("interpolate", {keypoints: updatedKeypoints, interval: parseFloat(formData.time_interval)}).then((res: Keypoint[]) => {
+        setPoints(res);
+        console.log(res);
+      });
+    }
   };
+
 
   return (
     <div className="mx-auto flex w-full h-full max-h-full max-w-7xl items-start gap-x-8 py-10 px-8">
