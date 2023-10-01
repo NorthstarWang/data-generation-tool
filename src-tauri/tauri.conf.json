@@ -57,8 +57,8 @@
     "windows": [
       {
         "fullscreen": false,
-        "height": 600,
-        "minHeight": 600,
+        "height": 756,
+        "minHeight": 756,
         "resizable": true,
         "title": "Data Generation Tool",
         "width": 1024,

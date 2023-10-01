@@ -54,8 +54,8 @@ fn interpolate(
     let end_timestamp = (keypoints[keypoints.len() - 1].timestamp * 1000.0).round() as i64;
     let num_points = ((end_timestamp - start_timestamp) as f64 / (interval * 1000.0)).ceil() as usize;
     let mut cache = HashMap::new();
-    println!("keypoints: {:?}", keypoints);
-    println!("interval: {:?}", interval);
+    // println!("keypoints: {:?}", keypoints);
+    // println!("interval: {:?}", interval);
     for j in 0..num_points+1 {
         let timestamp = start_timestamp + ((interval * 1000.0) * (j as f64)).round() as i64;
         let payload = if cache.contains_key(&timestamp) {
@@ -74,7 +74,7 @@ fn interpolate(
         };
         points.push(Keypoint { timestamp: (timestamp as f64) / 1000.0, payload });
     }
-    println!("Generated points: {:?}", points);
+    // println!("Generated points: {:?}", points);
 
     Ok(points)
 }

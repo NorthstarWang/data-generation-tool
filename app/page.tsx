@@ -6,7 +6,7 @@ import Content from "../components/Content";
 export default function Home() {
   return (
     <ThemeProvider attribute="class">
-        <div className="flex h-screen flex-col">
+        <div className="flex flex-col h-screen overflow-hidden">
           <Header />
           <Content />
         </div>

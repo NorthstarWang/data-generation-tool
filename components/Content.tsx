@@ -6,11 +6,11 @@ export default function Content() {
 
   const [dptId, setDptId] = useState("");
   const [keypoints, setKeypoints] = useState<Keypoint[]>([]);
+  const [generatedPoints, setGeneratedPoints] = useState<Keypoint[]>([]);
   const [formData, setFormData] = useState({
     time_interval: "",
   });
 
-  const [points, setPoints] = useState<Keypoint[]>([]);
 
   const handleSettingInput = (e: any) => {
     e.preventDefault();
@@ -46,18 +46,18 @@ export default function Content() {
     if (typeof window !== 'undefined' && updatedKeypoints.length >= 2) {
       const invoke = window.__TAURI__.invoke;
       invoke("interpolate", {keypoints: updatedKeypoints, interval: parseFloat(formData.time_interval)}).then((res: Keypoint[]) => {
-        setPoints(res);
-        console.log(res);
+        setGeneratedPoints(res);
       });
     }
   };
 
 
   return (
-    <div className="mx-auto flex w-full h-full max-h-full max-w-7xl items-start gap-x-8 py-10 px-8">
-      <aside className="flex-1 border-r border-gray-200 dark:border-gray-700 pr-8">
+    <div className="mx-auto flex w-full h-full max-h-full max-w-7xl items-start gap-x-8 py-10 px-8 overflow-hidden">
+      <aside className="flex flex-col max-w-xs border-r border-gray-200 dark:border-gray-700 pr-8 h-full">
+      <div className="flex-grow overflow-y-auto">
         <form>
-          <div className="rounded-lg overflow-auto max-h-full">
+          <div className="flex-grow">
             <div className="p-6 px-4 py-5">
               <h4 className="block text-sm font-medium leading-6">
                 Set Time Interval
@@ -146,12 +146,13 @@ export default function Content() {
             </button>
           </div>
         </form>
+        </div>
       </aside>
 
       <div className="flex-1">
         <div className="rounded-lg">
           <div className="p-6 px-4 py-5">
-            <Graph keypoints={points}/>
+            <Graph keypoints={keypoints} generatedPoints={generatedPoints}/>
           </div>
         </div>
       </div>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -10,6 +10,7 @@ import {
   Legend,
 } from "chart.js";
 import { Line } from "react-chartjs-2";
+import { useTheme } from "next-themes";
 
 ChartJS.register(
   CategoryScale,
@@ -21,25 +22,56 @@ ChartJS.register(
   Legend
 );
 
-interface GraphProps {
-  keypoints: Keypoint[];
+interface Keypoint {
+  timestamp: number;
+  payload: number;
 }
 
-export default function Graph({ keypoints }: GraphProps) {
+interface GraphProps {
+  keypoints: Keypoint[];
+  generatedPoints: Keypoint[];
+}
+
+export default function Graph({ keypoints, generatedPoints }: GraphProps) {
   const [timestamps, setTimestamps] = useState<number[]>([]);
   const [payloads, setPayloads] = useState<number[]>([]);
+  const { theme } = useTheme();
+  const themeRef = useRef(theme); // Create a ref to store the theme value
+
+  const pointColors = useMemo(() => {
+    const colors = [];
+    for (const point of generatedPoints) {
+      if (
+        keypoints.some(
+          (kp) =>
+            kp.timestamp === point.timestamp && kp.payload === point.payload
+        )
+      ) {
+        colors.push("red");
+      } else {
+        colors.push("blue");
+      }
+    }
+    return colors;
+  }, [keypoints, generatedPoints]);
 
   useEffect(() => {
-    const sortedKeypoints = keypoints.sort((a, b) => a.timestamp - b.timestamp);
+    themeRef.current = theme; // Update the ref value whenever the theme changes
+  }, [theme]);
 
-    const timestamps = sortedKeypoints.map((keypoint) =>
-      Math.max(0, Math.floor(keypoint.timestamp))
+  useEffect(() => {
+    const sortedGeneratedPoints = generatedPoints.sort(
+      (a, b) => a.timestamp - b.timestamp
     );
-    const payloads = sortedKeypoints.map((keypoint) => keypoint.payload);
+
+    const timestamps = sortedGeneratedPoints.map((point) =>
+      Math.max(0, Math.floor(point.timestamp))
+    );
+    const payloads = sortedGeneratedPoints.map((point) => point.payload);
 
     setTimestamps(timestamps);
     setPayloads(payloads);
-  }, [keypoints]);
+  }, [generatedPoints]);
 
   const data = {
     labels: timestamps,
@@ -50,6 +82,7 @@ export default function Graph({ keypoints }: GraphProps) {
         fill: false,
         borderColor: "rgb(75, 192, 192)",
         tension: 0.1,
+        pointBackgroundColor: pointColors,
       },
     ],
   };
@@ -95,12 +128,14 @@ export default function Graph({ keypoints }: GraphProps) {
     {
       afterDraw: function (chart: any) {
         if (chart.data.datasets[0].data.length < 2) {
+          let isDark = themeRef.current === "dark"; // Use the ref value here
           let ctx = chart.ctx;
           let width = chart.width;
           let height = chart.height;
           ctx.textAlign = "center";
           ctx.textBaseline = "middle";
           ctx.font = "30px Arial";
+          ctx.fillStyle = isDark ? "white" : "black";
           ctx.fillText("Please add keypoints", width / 2, height / 2);
           ctx.restore();
         }
@@ -109,11 +144,11 @@ export default function Graph({ keypoints }: GraphProps) {
   ];
 
   return (
-    <div className="h-full w-full rounded-md overflow-hidden">
+    <div className="h-[70vh] w-full rounded-md overflow-hidden">
       <Line
         data={data}
-        options={options}
-        plugins={plugins}
+        options={options as any}
+        plugins={plugins as any}
         className="h-full w-full"
       />
     </div>
