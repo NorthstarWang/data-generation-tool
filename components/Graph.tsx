@@ -87,6 +87,8 @@ export default function Graph({ keypoints, generatedPoints }: GraphProps) {
     ],
   };
 
+  const isDark = theme === "dark";
+  
   const options = {
     responsive: true,
     maintainAspectRatio: false,
@@ -96,7 +98,12 @@ export default function Graph({ keypoints, generatedPoints }: GraphProps) {
         position: "bottom",
         min: timestamps[0],
         max: timestamps[timestamps.length - 1],
+        grid: {
+          color: isDark ? "rgba(255, 255, 255, 0.1)" : "rgba(0, 0, 0, 0.1)",
+          borderColor: isDark ? "rgba(255, 255, 255, 0.25)" : "rgba(0, 0, 0, 0.25)",
+        },
         ticks: {
+          color: isDark ? "white" : "black",
           source: "auto",
           autoSkip: true,
           precision: 0,
@@ -105,9 +112,14 @@ export default function Graph({ keypoints, generatedPoints }: GraphProps) {
       y: {
         type: "linear",
         position: "left",
-        min: Math.min(...payloads),
+        min: 0,
         max: Math.max(...payloads),
+        grid: {
+          color: isDark ? "rgba(255, 255, 255, 0.1)" : "rgba(0, 0, 0, 0.1)",
+          borderColor: isDark ? "rgba(255, 255, 255, 0.25)" : "rgba(0, 0, 0, 0.25)",
+        },
         ticks: {
+          color: isDark ? "white" : "black",
           stepSize: 1,
           precision: 0,
         },
@@ -117,6 +129,7 @@ export default function Graph({ keypoints, generatedPoints }: GraphProps) {
       title: {
         display: true,
         text: "Payload vs. Timestamp",
+        color: isDark ? "white" : "black",
       },
       legend: {
         display: false,
@@ -144,7 +157,7 @@ export default function Graph({ keypoints, generatedPoints }: GraphProps) {
   ];
 
   return (
-    <div className="h-[70vh] w-full rounded-md overflow-hidden">
+    <div className="h-[75vh] w-[90vh] rounded-md overflow-hidden">
       <Line
         data={data}
         options={options as any}

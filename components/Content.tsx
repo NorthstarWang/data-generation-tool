@@ -1,24 +1,35 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import Graph from "./Graph";
+import Table from "./Table";
+import Notification from "./Notification";
 import { invoke } from "@tauri-apps/api";
 
 export default function Content() {
-
   const [dptId, setDptId] = useState("");
   const [keypoints, setKeypoints] = useState<Keypoint[]>([]);
   const [generatedPoints, setGeneratedPoints] = useState<Keypoint[]>([]);
+  const [graphKeypoints, setGraphKeypoints] = useState<Keypoint[]>([]);
+  const [show, setShow] = useState(false); 
   const [formData, setFormData] = useState({
     time_interval: "",
   });
-
+  const intervalRef = useRef<HTMLInputElement>(null);  // Specify HTMLInputElement as the generic type
 
   const handleSettingInput = (e: any) => {
     e.preventDefault();
-    const { name, value } = e.target;
-    setFormData((prevState) => ({
-      ...prevState,
-      [name]: value,
-    }));
+    if (intervalRef.current) {  // Add null check here
+      const value = intervalRef.current?.value;
+      setFormData((prevState) => ({
+        ...prevState,
+        time_interval: value,
+      }));
+    }
+  };
+
+  const clearGraph = () => {
+    setKeypoints([]);
+    setGraphKeypoints([]);
+    setGeneratedPoints([]);
   };
 
   const addKeypoint = (e: any) => {
@@ -29,7 +40,7 @@ export default function Content() {
     const payloadInput = document.getElementById("payload") as HTMLInputElement;
     const timestamp = Math.max(0, Math.floor(Number(timestampInput.value)));
     const payload = Number(payloadInput.value);
-  
+
     const existingKeypointIndex = keypoints.findIndex(
       (keypoint) => keypoint.timestamp === timestamp
     );
@@ -40,43 +51,123 @@ export default function Content() {
     } else {
       updatedKeypoints = [...keypoints, { timestamp, payload }];
     }
-
+    
+    updatedKeypoints.sort((a, b) => a.timestamp - b.timestamp);
     setKeypoints(updatedKeypoints);
+  };
 
-    if (typeof window !== 'undefined' && updatedKeypoints.length >= 2) {
-      const invoke = window.__TAURI__.invoke;
-      invoke("interpolate", {keypoints: updatedKeypoints, interval: parseFloat(formData.time_interval)}).then((res: Keypoint[]) => {
-        setGeneratedPoints(res);
-      });
+  const interpolatePoints = () => {
+    if (typeof window !== "undefined" && keypoints.length >= 2) {
+      const tauri: any = window.__TAURI__;
+      tauri
+        .invoke("interpolate", {
+          keypoints: keypoints,
+          interval: parseFloat(formData.time_interval),
+        })
+        .then((res: Keypoint[]) => {
+          res.sort((a, b) => a.timestamp - b.timestamp);
+          setGeneratedPoints(res);
+        });
     }
   };
 
+  const generateGraph = () => {
+    if (formData.time_interval === "" || keypoints.length < 2) {
+      setShow(true);
+    } else {
+      interpolatePoints();
+      setGraphKeypoints(keypoints);
+    }
+  }
+
+  const removeKeypoint = (index: number) => {
+    const updatedKeypoints = [...keypoints];
+    updatedKeypoints.splice(index, 1);
+    updatedKeypoints.sort((a, b) => a.timestamp - b.timestamp);
+    setKeypoints(updatedKeypoints);
+  };
 
   return (
-    <div className="mx-auto flex w-full h-full max-h-full max-w-7xl items-start gap-x-8 py-10 px-8 overflow-hidden">
+    <div className="mx-auto flex w-full h-full max-h-full max-w-full items-start gap-x-8 py-10 px-8 overflow-hidden">
+      {show && <Notification show={show} setShow={setShow} />}
       <aside className="flex flex-col max-w-xs border-r border-gray-200 dark:border-gray-700 pr-8 h-full">
-      <div className="flex-grow overflow-y-auto">
-        <form>
-          <div className="flex-grow">
+        <div className="flex-grow overflow-y-auto">
+          <form>
+            <div className="flex-grow">
+              <div className="p-6 px-4 py-5">
+                <h4 className="block text-sm font-medium leading-6">
+                  Set Time Interval
+                </h4>
+                <div className="mt-2 -space-y-px rounded-md shadow-sm">
+                  <div className="flex -space-x-px">
+                    <div className="flex-1">
+                      <label htmlFor="timestamp" className="sr-only">
+                        Time interval
+                      </label>
+                      <input
+                        type="number"
+                        name="time_interval"
+                        id="time_interval"
+                        min="1"
+                        step="1"
+                        className="relative block w-full rounded-md border-0 bg-transparent py-1.5 ring-1 ring-inset ring-gray-300 dark:ring-gray-600 placeholder:text-gray-400 focus:z-10 focus:ring-2 focus:ring-inset focus:ring-gray-900 dark:focus:ring-white text-sm leading-6"
+                        placeholder="Time Interval"
+                        ref={intervalRef}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-6 px-4 py-5 flex items-center justify-end gap-x-6">
+                <button
+                  type="button"
+                  className="text-sm font-semibold leading-6"
+                >
+                  Clear
+                </button>
+                <button
+                  type="submit"
+                  onClick={handleSettingInput}
+                  className="rounded-md px-3 py-2 text-sm font-semibold shadow-sm bg-gray-300 dark:bg-white/10"
+                >
+                  Apply Settings
+                </button>
+              </div>
+            </div>
+          </form>
+
+          <form>
             <div className="p-6 px-4 py-5">
               <h4 className="block text-sm font-medium leading-6">
-                Set Time Interval
+                Add Keypoint
               </h4>
               <div className="mt-2 -space-y-px rounded-md shadow-sm">
                 <div className="flex -space-x-px">
-                  <div className="flex-1">
+                  <div className="w-1/2 min-w-0 flex-1">
                     <label htmlFor="timestamp" className="sr-only">
-                      Time interval
+                      Timestamp
                     </label>
                     <input
                       type="number"
-                      name="time_interval"
-                      id="time_interval"
-                      min="1"
+                      name="timestamp"
+                      id="timestamp"
+                      min="0"
                       step="1"
-                      className="relative block w-full rounded-md border-0 bg-transparent py-1.5 ring-1 ring-inset ring-gray-300 dark:ring-gray-600 placeholder:text-gray-400 focus:z-10 focus:ring-2 focus:ring-inset focus:ring-gray-900 dark:focus:ring-white text-sm leading-6"
-                      placeholder="Time Interval"
-                      onChange={handleSettingInput}
+                      className="relative block w-full rounded-none rounded-l-md border-0 bg-transparent py-1.5 ring-1 ring-inset ring-gray-300 dark:ring-gray-600 placeholder:text-gray-400 focus:z-10 focus:ring-2 focus:ring-inset focus:ring-gray-900 dark:focus:ring-white text-sm leading-6"
+                      placeholder="Timestamp"
+                    />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <label htmlFor="payload" className="sr-only">
+                      Payload
+                    </label>
+                    <input
+                      type="number"
+                      name="payload"
+                      id="payload"
+                      className="relative block w-full rounded-none rounded-r-md border-0 bg-transparent py-1.5 ring-1 ring-inset ring-gray-300 dark:ring-gray-600 placeholder:text-gray-400 focus:z-10 focus:ring-2 focus:ring-inset focus:ring-gray-600 dark:focus:ring-white text-sm leading-6"
+                      placeholder="Payload"
                     />
                   </div>
                 </div>
@@ -88,74 +179,40 @@ export default function Content() {
                 Clear
               </button>
               <button
-                type="submit"
-                className="rounded-md px-3 py-2 text-sm font-semibold shadow-sm bg-gray-300 dark:bg-gray-700"
+                onClick={addKeypoint}
+                className="rounded-md px-3 py-2 text-sm font-semibold shadow-sm bg-gray-300 dark:bg-white/10"
               >
-                Apply Settings
+                Add Keypoint
               </button>
             </div>
-          </div>
-        </form>
-
-        <form>
-          <div className="p-6 px-4 py-5">
-            <h4 className="block text-sm font-medium leading-6">
-              Add Keypoint
-            </h4>
-            <div className="mt-2 -space-y-px rounded-md shadow-sm">
-              <div className="flex -space-x-px">
-                <div className="w-1/2 min-w-0 flex-1">
-                  <label htmlFor="timestamp" className="sr-only">
-                    Timestamp
-                  </label>
-                  <input
-                    type="number"
-                    name="timestamp"
-                    id="timestamp"
-                    min="0"
-                    step="1"
-                    className="relative block w-full rounded-none rounded-l-md border-0 bg-transparent py-1.5 ring-1 ring-inset ring-gray-300 dark:ring-gray-600 placeholder:text-gray-400 focus:z-10 focus:ring-2 focus:ring-inset focus:ring-gray-900 dark:focus:ring-white text-sm leading-6"
-                    placeholder="Timestamp"
-                  />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <label htmlFor="payload" className="sr-only">
-                    Payload
-                  </label>
-                  <input
-                    type="number"
-                    name="payload"
-                    id="payload"
-                    className="relative block w-full rounded-none rounded-r-md border-0 bg-transparent py-1.5 ring-1 ring-inset ring-gray-300 dark:ring-gray-600 placeholder:text-gray-400 focus:z-10 focus:ring-2 focus:ring-inset focus:ring-gray-600 dark:focus:ring-white text-sm leading-6"
-                    placeholder="Payload"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="p-6 px-4 py-5 flex items-center justify-end gap-x-6">
-            <button type="button" className="text-sm font-semibold leading-6">
-              Clear
-            </button>
-            <button
-              onClick={addKeypoint}
-              className="rounded-md px-3 py-2 text-sm font-semibold shadow-sm bg-gray-300 dark:bg-gray-700"
-            >
-              Add Keypoint
-            </button>
-          </div>
-        </form>
+          </form>
         </div>
       </aside>
 
       <div className="flex-1">
         <div className="rounded-lg">
           <div className="p-6 px-4 py-5">
-            <Graph keypoints={keypoints} generatedPoints={generatedPoints}/>
+            <Graph keypoints={graphKeypoints} generatedPoints={generatedPoints} />
+          </div>
+          <div className="px-4 py-3 flex justify-between">
+            <button onClick={clearGraph} className="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded inline-flex items-center">
+              Clear Graph
+            </button>
+            <button onClick={generateGraph} className="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded inline-flex items-center">
+              Generate Graph
+            </button>
+            <button className="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded inline-flex items-center">
+              Export Graph
+            </button>
           </div>
         </div>
       </div>
+
+      <aside className="flex flex-col flex-shrink-0 flex-grow-0 w-200 border-l border-gray-200 dark:border-gray-700 pl-8 h-full">
+        <div className="flex-grow overflow-y-hidden">
+          <Table keypoints={keypoints} removeKeypoint={removeKeypoint} />
+        </div>
+      </aside>
     </div>
   );
 }

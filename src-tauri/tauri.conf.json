@@ -61,8 +61,8 @@
         "minHeight": 756,
         "resizable": true,
         "title": "Data Generation Tool",
-        "width": 1024,
-        "minWidth": 1024
+        "width": 1280,
+        "minWidth": 1280
       }
     ]
   }
