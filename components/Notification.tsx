@@ -5,9 +5,10 @@ import Image from "next/image"
 interface NotificationProps {
     show: boolean;
     setShow: (show: boolean) => void;
+    error: string;
 }
 
-export default function Notification({ show, setShow }: NotificationProps) {
+export default function Notification({ show, setShow, error }: NotificationProps) {
   return (
     <>
       <div
@@ -25,7 +26,7 @@ export default function Notification({ show, setShow }: NotificationProps) {
             leaveFrom="opacity-100"
             leaveTo="opacity-0"
           >
-            <div className="pointer-events-auto w-full max-w-sm overflow-hidden rounded-lg bg-white shadow-lg ring-1 ring-black ring-opacity-5">
+            <div className="pointer-events-auto w-full max-w-sm overflow-hidden rounded-lg bg-white dark:bg-gray-800 shadow-lg ring-1 dark:ring-black ring-opacity-5">
               <div className="p-4">
                 <div className="flex items-start">
                   <div className="flex-shrink-0">
@@ -37,13 +38,13 @@ export default function Notification({ show, setShow }: NotificationProps) {
                         height={24}/>
                   </div>
                   <div className="ml-3 w-0 flex-1 pt-0.5">
-                    <p className="text-sm font-medium text-gray-900">Error occurred!</p>
-                    <p className="mt-1 text-sm text-gray-500">You need to fill the form first!</p>
+                    <p className="text-sm font-medium text-gray-900 dark:text-gray-300">Error occurred!</p>
+                    <p className="mt-1 text-sm text-gray-500">{error}</p>
                   </div>
                   <div className="ml-4 flex flex-shrink-0">
                     <button
                       type="button"
-                      className="inline-flex rounded-md bg-white text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                      className="inline-flex rounded-md bg-white dark:bg-gray-800 text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2"
                       onClick={() => {
                         setShow(false)
                       }}
@@ -53,8 +54,8 @@ export default function Notification({ show, setShow }: NotificationProps) {
                   <Image
                         src="/icon_close.svg"
                         alt=""
-                        width={16}
-                        height={16}/>
+                        width={24}
+                        height={24}/>
                     </button>
                   </div>
                 </div>

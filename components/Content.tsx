@@ -2,6 +2,7 @@ import React, { useState, useRef } from "react";
 import Graph from "./Graph";
 import Table from "./Table";
 import Notification from "./Notification";
+import { CSVLink } from "react-csv";
 import { invoke } from "@tauri-apps/api";
 
 export default function Content() {
@@ -13,16 +14,24 @@ export default function Content() {
   const [formData, setFormData] = useState({
     time_interval: "",
   });
+  const [errorNotification, setErrorNotification] = useState("");
+
   const intervalRef = useRef<HTMLInputElement>(null);  // Specify HTMLInputElement as the generic type
 
   const handleSettingInput = (e: any) => {
     e.preventDefault();
-    if (intervalRef.current) {  // Add null check here
+    if (intervalRef.current) {
       const value = intervalRef.current?.value;
-      setFormData((prevState) => ({
-        ...prevState,
-        time_interval: value,
-      }));
+      const parsedValue = parseInt(value, 10);
+      if (Number.isInteger(parsedValue) && parsedValue > 0) {
+        setFormData((prevState) => ({
+          ...prevState,
+          time_interval: parsedValue.toString(),
+        }));
+      } else {
+        setErrorNotification("Time interval must be a positive integer larger than 0!");
+        setShow(true);
+      }
     }
   };
 
@@ -38,7 +47,26 @@ export default function Content() {
       "timestamp"
     ) as HTMLInputElement;
     const payloadInput = document.getElementById("payload") as HTMLInputElement;
+
+    if (Number.isNaN(payloadInput.value)) {
+      setErrorNotification("Payload must be a number!");
+      setShow(true);
+      return;
+    }
+    if (timestampInput.value.trim() === "" || payloadInput.value.trim() === "") {
+      setErrorNotification("Timestamp and payload cannot be empty!");
+      setShow(true);
+      return;
+    }
+    
     const timestamp = Math.max(0, Math.floor(Number(timestampInput.value)));
+
+    if (timestamp !== Number(timestampInput.value)) {
+      setErrorNotification("Timestamp must be a non-negative integer!");
+      setShow(true);
+      return;
+    }
+
     const payload = Number(payloadInput.value);
 
     const existingKeypointIndex = keypoints.findIndex(
@@ -60,7 +88,7 @@ export default function Content() {
     if (typeof window !== "undefined" && keypoints.length >= 2) {
       const tauri: any = window.__TAURI__;
       tauri
-        .invoke("interpolate", {
+        .invoke("interpolate_cubic", {
           keypoints: keypoints,
           interval: parseFloat(formData.time_interval),
         })
@@ -72,7 +100,11 @@ export default function Content() {
   };
 
   const generateGraph = () => {
-    if (formData.time_interval === "" || keypoints.length < 2) {
+    if (formData.time_interval === "") {
+      setErrorNotification("You need to apply setting for time interval first!");
+      setShow(true);
+    }else if(keypoints.length < 2){
+      setErrorNotification("You need to have at least 2 keypoints first!");
       setShow(true);
     } else {
       interpolatePoints();
@@ -89,7 +121,7 @@ export default function Content() {
 
   return (
     <div className="mx-auto flex w-full h-full max-h-full max-w-full items-start gap-x-8 py-10 px-8 overflow-hidden">
-      {show && <Notification show={show} setShow={setShow} />}
+      {show && <Notification show={show} setShow={setShow} error={errorNotification}/>}
       <aside className="flex flex-col max-w-xs border-r border-gray-200 dark:border-gray-700 pr-8 h-full">
         <div className="flex-grow overflow-y-auto">
           <form>
@@ -201,9 +233,9 @@ export default function Content() {
             <button onClick={generateGraph} className="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded inline-flex items-center">
               Generate Graph
             </button>
-            <button className="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded inline-flex items-center">
+            <CSVLink data={generatedPoints} className="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded inline-flex items-center">
               Export Graph
-            </button>
+            </CSVLink>
           </div>
         </div>
       </div>

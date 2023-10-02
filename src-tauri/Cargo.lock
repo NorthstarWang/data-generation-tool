@@ -66,6 +66,7 @@ checksum = "a4668cab20f66d8d020e1fbc0ebe47217433c1b6c8f2040faf858554e394ace6"
 name = "app"
 version = "0.1.0"
 dependencies = [
+ "cubic_spline",
  "serde",
  "serde_json",
  "splines",
@@ -484,6 +485,15 @@ checksum = "6d2301688392eb071b0bf1a37be05c469d3cc4dbbd95df672fe28ab021e6a096"
 dependencies = [
  "quote",
  "syn 1.0.109",
+]
+
+[[package]]
+name = "cubic_spline"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "38c63da2494d1333c977518cc40874f5ea0361538163355993544c1e4115abf3"
+dependencies = [
+ "wasm-bindgen",
 ]
 
 [[package]]
