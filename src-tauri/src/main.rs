@@ -1,13 +1,19 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 extern crate splines;
-extern crate cubic_spline;
+extern crate inline_python;
+extern crate pyo3;
+extern crate csv;
+extern crate native_dialog;
 
 use splines::{ Interpolation, Key, Spline };
 use serde::{ Serialize, Deserialize };
 use std::collections::HashMap;
 use std::error::Error;
 use std::fmt;
-use cubic_spline::{ Points, SplineOpts };
+use pyo3::prelude::*;
+use pyo3::types::PyDict;
+use native_dialog::FileDialog;
+use csv::Writer;
 
 #[derive(Debug)]
 struct MyError(String);
@@ -26,11 +32,17 @@ impl Serialize for MyError {
     }
 }
 
+
+impl From<pyo3::PyErr> for MyError {
+    fn from(err: pyo3::PyErr) -> Self {
+        MyError(format!("Python error: {}", err))
+    }
+}
+
 fn main() {
     tauri::Builder
         ::default()
-        .invoke_handler(tauri::generate_handler![interpolate_cosine])
-        .invoke_handler(tauri::generate_handler![interpolate_cubic])
+        .invoke_handler(tauri::generate_handler![interpolate_cosine, interpolate_cubic, export_csv])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
@@ -83,31 +95,66 @@ fn interpolate_cosine(keypoints: Vec<Keypoint>, interval: f64) -> Result<Vec<Key
 
 #[tauri::command]
 fn interpolate_cubic(keypoints: Vec<Keypoint>, interval: f64) -> Result<Vec<Keypoint>, MyError> {
-    let source: Vec<(f64, f64)> = keypoints.iter().map(|kp| (kp.timestamp, kp.payload)).collect();
-    let opts = SplineOpts::new();
+    Python::with_gil(|py| {
+        let py_module = PyModule::from_code(py, include_str!("interpolate.py"), "interpolate.py", "interpolate")?;
+        
+        let data: Vec<(f64, f64)> = keypoints.iter().map(|kp| (kp.timestamp, kp.payload)).collect();
+        
+        // Prepare locals as a dictionary
+        let locals = PyDict::new(py);
+        locals.set_item("keypoints", data.clone())?;  // Clone data here
+        locals.set_item("interval", interval)?;
 
-    let points = <Points as cubic_spline::TryFrom<Vec<(f64, f64)>>>::try_from(source).map_err(|_| MyError(String::from("Invalid points")))?;
-
-    let max_timestamp = keypoints.iter().map(|kp| kp.timestamp).fold(f64::NEG_INFINITY, f64::max);
-    let min_timestamp = keypoints.iter().map(|kp| kp.timestamp).fold(f64::INFINITY, f64::min);
-    let total_duration = max_timestamp - min_timestamp;
-
-    let segments = (total_duration / interval).ceil() as u32;
-    println!("segments: {:?}", segments);
-
-    let calculated_points = points.calc_spline(&opts.num_of_segments(segments)).map_err(|_| MyError(String::from("Can't construct spline points")))?;
-
-    let result = calculated_points.into_inner().into_iter().map(|point| {
-        Keypoint { timestamp: point.x, payload: point.y }
-    }).collect();
-
-    Ok(result)
+        // Now call the function with the prepared locals
+        let py_result: PyResult<&PyAny> = py_module
+            .call_method1("interpolate", (data, interval));  // Updated this line
+        
+        match py_result {
+            Ok(py_any) => {
+                let interpolated_data: Vec<(f64, f64)> = py_any.extract()?;
+                let result: Vec<Keypoint> = interpolated_data
+                    .iter()
+                    .map(|&(timestamp, payload)| Keypoint { timestamp, payload })
+                    .collect();
+                Ok(result)
+            },
+            Err(e) => Err(e.into()),
+        }
+    })
 }
 
+#[tauri::command]
+fn export_csv(keypoints: Vec<Keypoint>) -> Result<(), MyError> {
+    let path = FileDialog::new()
+        .set_location(&std::env::current_dir().unwrap())
+        .add_filter("CSV files", &["csv"])
+        .show_save_single_file()
+        .unwrap();
 
+    if let Some(path) = path {
+        let mut wtr = match Writer::from_path(&path) {
+            Ok(writer) => writer,
+            Err(e) => return Err(MyError(format!("CSV error: {}", e))),
+        };
 
+        // Write header row
+        match wtr.write_record(&["timestamp", "payload"]) {
+            Ok(_) => (),
+            Err(e) => return Err(MyError(format!("CSV error: {}", e))),
+        }
 
+        for keypoint in &keypoints {
+            match wtr.write_record(&[keypoint.timestamp.to_string(), keypoint.payload.to_string()]) {
+                Ok(_) => (),
+                Err(e) => return Err(MyError(format!("CSV error: {}", e))),
+            }
+        }
 
+        match wtr.flush() {
+            Ok(_) => (),
+            Err(e) => return Err(MyError(format!("IO error: {}", e))),
+        };
+    }
 
-
-
+    Ok(())
+}

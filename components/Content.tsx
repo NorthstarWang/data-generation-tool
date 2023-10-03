@@ -2,11 +2,10 @@ import React, { useState, useRef } from "react";
 import Graph from "./Graph";
 import Table from "./Table";
 import Notification from "./Notification";
-import { CSVLink } from "react-csv";
+import { Dna } from 'react-loader-spinner';
 import { invoke } from "@tauri-apps/api";
 
 export default function Content() {
-  const [dptId, setDptId] = useState("");
   const [keypoints, setKeypoints] = useState<Keypoint[]>([]);
   const [generatedPoints, setGeneratedPoints] = useState<Keypoint[]>([]);
   const [graphKeypoints, setGraphKeypoints] = useState<Keypoint[]>([]);
@@ -15,6 +14,7 @@ export default function Content() {
     time_interval: "",
   });
   const [errorNotification, setErrorNotification] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const intervalRef = useRef<HTMLInputElement>(null);  // Specify HTMLInputElement as the generic type
 
@@ -86,6 +86,8 @@ export default function Content() {
 
   const interpolatePoints = () => {
     if (typeof window !== "undefined" && keypoints.length >= 2) {
+      setLoading(true);
+
       const tauri: any = window.__TAURI__;
       tauri
         .invoke("interpolate_cubic", {
@@ -95,6 +97,7 @@ export default function Content() {
         .then((res: Keypoint[]) => {
           res.sort((a, b) => a.timestamp - b.timestamp);
           setGeneratedPoints(res);
+          setLoading(false);
         });
     }
   };
@@ -112,6 +115,28 @@ export default function Content() {
     }
   }
 
+  const exportCSV = (data: Keypoint[]) => {
+    if (data.length < 2) {
+      setErrorNotification("You need to have at least 2 keypoints first!");
+      setShow(true);
+      return;
+    }
+    
+    setLoading(true);
+    const tauri: any = window.__TAURI__;
+    tauri
+      .invoke("export_csv", { keypoints: data })
+      .then(() => {
+        setLoading(false);
+      })
+      .catch((error: any) => {
+        console.error('Failed to export CSV:', error);
+        setErrorNotification(`Failed to export CSV: ${error.message}`);
+        setShow(true);
+        setLoading(false);
+      });
+  };  
+
   const removeKeypoint = (index: number) => {
     const updatedKeypoints = [...keypoints];
     updatedKeypoints.splice(index, 1);
@@ -121,6 +146,16 @@ export default function Content() {
 
   return (
     <div className="mx-auto flex w-full h-full max-h-full max-w-full items-start gap-x-8 py-10 px-8 overflow-hidden">
+      {loading && (
+        <div className="fixed inset-0 z-50 flex justify-center items-center bg-black bg-opacity-50">
+          <Dna
+            visible={loading}
+            height="80"
+            width="80"
+            ariaLabel="dna-loading"
+          />
+        </div>
+      )}
       {show && <Notification show={show} setShow={setShow} error={errorNotification}/>}
       <aside className="flex flex-col max-w-xs border-r border-gray-200 dark:border-gray-700 pr-8 h-full">
         <div className="flex-grow overflow-y-auto">
@@ -161,7 +196,7 @@ export default function Content() {
                 <button
                   type="submit"
                   onClick={handleSettingInput}
-                  className="rounded-md px-3 py-2 text-sm font-semibold shadow-sm bg-gray-300 dark:bg-white/10"
+                  className="rounded-md px-3 py-2 text-sm font-semibold shadow-sm bg-gray-300 dark:bg-white/10 hover:bg-gray-400 dark:hover:bg-white/20"
                 >
                   Apply Settings
                 </button>
@@ -212,7 +247,7 @@ export default function Content() {
               </button>
               <button
                 onClick={addKeypoint}
-                className="rounded-md px-3 py-2 text-sm font-semibold shadow-sm bg-gray-300 dark:bg-white/10"
+                className="rounded-md px-3 py-2 text-sm font-semibold shadow-sm bg-gray-300 dark:bg-white/10 hover:bg-gray-400 dark:hover:bg-white/20"
               >
                 Add Keypoint
               </button>
@@ -227,15 +262,15 @@ export default function Content() {
             <Graph keypoints={graphKeypoints} generatedPoints={generatedPoints} />
           </div>
           <div className="px-4 py-3 flex justify-between">
-            <button onClick={clearGraph} className="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded inline-flex items-center">
+            <button type="button" onClick={clearGraph} className="bg-gray-300 dark:bg-white/10 hover:bg-gray-400 dark:hover:bg-white/20 font-bold py-2 px-4 rounded inline-flex items-center">
               Clear Graph
             </button>
-            <button onClick={generateGraph} className="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded inline-flex items-center">
+            <button type="button" onClick={generateGraph} className="bg-gray-300 dark:bg-white/10 hover:bg-gray-400 dark:hover:bg-white/20 font-bold py-2 px-4 rounded inline-flex items-center">
               Generate Graph
             </button>
-            <CSVLink data={generatedPoints} className="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded inline-flex items-center">
+            <button type="button" onClick={() => exportCSV(generatedPoints)} className="bg-gray-300 dark:bg-white/10 hover:bg-gray-400 dark:hover:bg-white/20 font-bold py-2 px-4 rounded inline-flex items-center">
               Export Graph
-            </CSVLink>
+            </button>
           </div>
         </div>
       </div>
